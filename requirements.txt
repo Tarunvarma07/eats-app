@@ -42,3 +42,6 @@ click==8.4.1
 
 # Production server
 gunicorn==23.0.0
+
+# Vercel/AWS Lambda adapter for FastAPI
+mangum==0.17.0
