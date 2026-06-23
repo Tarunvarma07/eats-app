@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Login — EATS</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div id="global-error" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#fee; border:1px solid #c00; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#c00; z-index:9999;"></div>
+<div id="global-success" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#efe; border:1px solid #080; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#080; z-index:9999;"></div>
+
+<div class="auth-page">
+
+  <!-- Left panel — dark green -->
+  <div class="auth-panel green">
+    <div class="auth-panel-logo">
+      <div class="auth-panel-icon">🛡️</div>
+      <div class="auth-panel-brand" style="font-size:48px">EATS</div>
+      <div class="auth-panel-sub">Employee Attendance<br>Tracking System</div>
+    </div>
+    <img src="login_illustration.png" class="auth-panel-illus" alt="Login illustration"/>
+  </div>
+
+  <!-- Right form -->
+  <div class="auth-form-panel">
+    <div class="auth-form-box">
+      <h1 class="auth-form-title" style="font-size:26px">Welcome Back!</h1>
+      <p class="auth-form-sub">Login to your account</p>
+
+      <div id="alert" class="auth-alert error"></div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input id="email" type="email" class="form-input" placeholder="Enter your email"
+                   required autocomplete="email"/>
+          </div>
+          <span id="email-error" class="field-error" style="display:none; color:#ef4444; font-size:0.8em; margin-top:4px;"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input id="password" type="password" class="form-input" placeholder="Enter your password"
+                   required autocomplete="current-password"/>
+            <button type="button" class="toggle-pw" onclick="togglePw()">👁</button>
+          </div>
+          <span id="password-error" class="field-error" style="display:none; color:#ef4444; font-size:0.8em; margin-top:4px;"></span>
+        </div>
+
+        <div class="remember-row">
+          <label><input type="checkbox" id="remember"/> Remember me</label>
+          <a href="#" style="color:#7c3aed;font-size:13px">Forgot Password?</a>
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn-submit green">Login</button>
+      </form>
+
+      <p class="auth-footer" style="margin-top:16px">
+        Don't have an account? <a href="/app/register.html">Register</a>
+      </p>
+      <p class="auth-footer" style="margin-top:8px">
+        <a href="/app/setup.html" style="color:#6b7280;font-size:12px">First-time admin setup →</a>
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  (async function() {
+    await redirectIfLoggedIn();
+  })();
+
+  function togglePw() {
+    const el = document.getElementById('password');
+    el.type = el.type === 'password' ? 'text' : 'password';
+  }
+
+  const alertEl = document.getElementById('alert');
+  const btn     = document.getElementById('submitBtn');
+
+  document.getElementById('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const valid = validateForm([
+      { id: 'email', label: 'Email', rules: { required: true, email: true } },
+      { id: 'password', label: 'Password', rules: { required: true, minLength: 6 } },
+    ]);
+    if (!valid) return;
+
+    alertEl.className = 'auth-alert error';
+    btn.disabled = true; btn.textContent = 'Logging in…';
+
+    try {
+      console.log('Starting login request...');
+      const data = await apiFetch('/api/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email:    document.getElementById('email').value.trim(),
+          password: document.getElementById('password').value,
+        }),
+      });
+      
+      console.log('Login response:', data);
+      
+      if (!data || !data.access_token) {
+        showError('Login succeeded but no token received. Please contact admin.');
+        btn.disabled = false; btn.textContent = 'Login';
+        return;
+      }
+      
+      saveToken(data.access_token);
+      const p = parseJwt(data.access_token);
+      // Save role to localStorage for auth guard checks
+      localStorage.setItem('user_role', p?.role || 'employee');
+      console.log('Redirecting to:', p?.role === 'admin' ? '/app/admin.html' : '/app/dashboard.html');
+      window.location.href = p?.role === 'admin' ? '/app/admin.html' : '/app/dashboard.html';
+    } catch (err) {
+      console.error('Login error:', err);
+      showError(err.message || 'Invalid email or password.');
+      btn.disabled = false; btn.textContent = 'Login';
+    }
+  });
+</script>
+</body>
+</html>

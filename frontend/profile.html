@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Profile — EATS</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div id="global-error" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#fee; border:1px solid #c00; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#c00; z-index:9999;"></div>
+<div id="global-success" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#efe; border:1px solid #080; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#080; z-index:9999;"></div>
+
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar emp" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🛡️</div>
+      <span class="sidebar-logo-text">EATS</span>
+      <span class="sidebar-logo-bell">🔔</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="window.location.href='/app/dashboard.html'">
+        <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/dashboard.html'">
+        <span class="nav-icon">📅</span><span class="nav-label">My Attendance</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/attendance-history.html'">
+        <span class="nav-icon">📋</span><span class="nav-label">Attendance History</span>
+      </button>
+      <button class="nav-item active">
+        <span class="nav-icon">👤</span><span class="nav-label">Profile</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/change-password.html'">
+        <span class="nav-icon">🔑</span><span class="nav-label">Change Password</span>
+      </button>
+      <button class="nav-item" id="logoutNav" style="margin-top:auto">
+        <span class="nav-icon">🚪</span><span class="nav-label">Logout</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-area">
+    <header class="main-header">
+      <div class="main-header-title">My Profile</div>
+      <div class="main-header-right">
+        <span class="header-bell">🔔</span>
+        <span style="font-size:13px;color:#374151">Welcome, <strong id="headerName"></strong></span>
+        <div class="header-avatar" id="headerAvatar">S</div>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2>Profile Information</h2>
+        </div>
+        <div style="max-width:440px;padding:20px">
+          <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input id="profileName" type="text" class="form-input no-icon" readonly/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input id="profileEmail" type="email" class="form-input no-icon" readonly/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <input id="profileDept" type="text" class="form-input no-icon" readonly/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role</label>
+            <input id="profileRole" type="text" class="form-input no-icon" readonly/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Account Status</label>
+            <input id="profileStatus" type="text" class="form-input no-icon" readonly/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Member Since</label>
+            <input id="profileJoined" type="text" class="form-input no-icon" readonly/>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw 0;
+  const user = currentUser();
+  if (user?.role === 'admin') window.location.href = '/app/admin.html';
+
+  document.getElementById('headerName').textContent  = user?.name || 'Employee';
+  document.getElementById('headerAvatar').textContent = initials(user?.name || '?');
+
+  document.getElementById('logoutNav').addEventListener('click', async () => {
+    try { await apiFetch('/api/v1/auth/logout', { method:'POST' }); } catch {}
+    clearToken(); window.location.href = '/app/index.html';
+  });
+
+  async function loadProfile() {
+    try {
+      const profile = await apiFetch('/api/v1/auth/me');
+      document.getElementById('profileName').value = profile.name || '';
+      document.getElementById('profileEmail').value = profile.email || '';
+      document.getElementById('profileDept').value = profile.department || '—';
+      document.getElementById('profileRole').value = profile.role || '—';
+      document.getElementById('profileStatus').value = profile.is_active ? 'Active' : 'Inactive';
+      document.getElementById('profileJoined').value = profile.created_at ? fmtDate(profile.created_at) : '—';
+    } catch (err) {
+      showError(err.message || 'Failed to load profile');
+    }
+  }
+
+  loadProfile();
+</script>
+</body>
+</html>

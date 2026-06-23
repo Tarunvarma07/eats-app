@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Setup — EAT System</title>
+  <meta name="description" content="One-time administrator account creation for the EAT System." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .auth-wrap { width: 100%; max-width: 460px; }
+    .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+    .logo-icon { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg,#f59e0b,#fbbf24); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .logo-name { font-size: 18px; font-weight: 700; }
+    .logo-sub  { font-size: 12px; color: var(--muted); }
+    .warning-box {
+      padding: 14px 16px; border-radius: 8px;
+      background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.3);
+      color: #fcd34d; font-size: 13px; margin-bottom: 24px; line-height: 1.5;
+    }
+    .warning-box strong { display: block; margin-bottom: 4px; font-size: 14px; }
+    .role-badge { display: inline-block; padding: 2px 10px; border-radius: 99px; background: rgba(245,158,11,.15); color: #f59e0b; font-size: 12px; font-weight: 500; margin-bottom: 20px; border: 1px solid rgba(245,158,11,.3); }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media(max-width:480px){ .two-col { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div id="global-error" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#fee; border:1px solid #c00; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#c00; z-index:9999;"></div>
+<div id="global-success" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#efe; border:1px solid #080; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#080; z-index:9999;"></div>
+
+<div class="page-center">
+  <div class="card auth-wrap">
+
+    <div class="logo">
+      <div class="logo-icon">👑</div>
+      <div>
+        <div class="logo-name">Admin Setup</div>
+        <div class="logo-sub">EAT System — First-Run Configuration</div>
+      </div>
+    </div>
+
+    <div class="warning-box">
+      <strong>⚠ One-time setup only</strong>
+      This page creates the first CFO/CEO administrator account.
+      Once created, this endpoint is permanently disabled for security.
+      If an admin already exists you will see a "forbidden" error.
+    </div>
+
+    <span class="role-badge">👑 Admin / CFO / CEO account</span>
+
+    <div id="alert"   class="alert alert-error"></div>
+    <div id="success" class="alert alert-success"></div>
+
+    <form id="setupForm">
+      <div class="form-group">
+        <label for="name">Full name</label>
+        <input id="name" type="text" placeholder="e.g. Ramesh Gupta (CFO)" required />
+      </div>
+      <div class="two-col">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input id="email" type="email" placeholder="cfo@company.com" required />
+        </div>
+        <div class="form-group">
+          <label for="department">Department</label>
+          <select id="department" required>
+            <option value="" disabled selected>Select…</option>
+            <option value="HR">HR</option>
+            <option value="IT">IT</option>
+            <option value="FINANCE">Finance</option>
+            <option value="OPERATIONS">Operations</option>
+          </select>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" type="password" placeholder="Strong password" required minlength="6" />
+        </div>
+        <div class="form-group">
+          <label for="confirm">Confirm</label>
+          <input id="confirm" type="password" placeholder="Repeat password" required />
+        </div>
+      </div>
+
+      <button id="submitBtn" type="submit" class="btn btn-primary" style="width:100%;background:var(--amber);color:#000">
+        Create Admin Account
+      </button>
+    </form>
+
+    <p class="form-footer" style="margin-top:18px">
+      <a href="/app/index.html">← Back to login</a>
+    </p>
+
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  redirectIfLoggedIn();
+
+  const alertBox  = document.getElementById('alert');
+  const success   = document.getElementById('success');
+  const submitBtn = document.getElementById('submitBtn');
+
+  document.getElementById('setupForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    alertBox.className = 'alert';
+    success.className  = 'alert';
+
+    const password = document.getElementById('password').value;
+    const confirm  = document.getElementById('confirm').value;
+
+    if (password !== confirm) {
+      alertBox.textContent = 'Passwords do not match.';
+      alertBox.className = 'alert alert-error show';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating admin…';
+
+    try {
+      const data = await apiFetch('/api/v1/auth/admin-setup', {
+        method: 'POST',
+        body: JSON.stringify({
+          name:       document.getElementById('name').value.trim(),
+          email:      document.getElementById('email').value.trim(),
+          password,
+          department: document.getElementById('department').value,
+        }),
+      });
+
+      success.innerHTML = `✓ Admin account created for <strong>${escapeHtml(data.name)}</strong>!<br>Redirecting to login…`;
+      success.className = 'alert alert-success show';
+      document.getElementById('setupForm').style.display = 'none';
+      setTimeout(() => window.location.href = '/app/index.html', 2000);
+    } catch (err) {
+      alertBox.textContent = err.message || 'Setup failed.';
+      alertBox.className = 'alert alert-error show';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create Admin Account';
+    }
+  });
+</script>
+</body>
+</html>

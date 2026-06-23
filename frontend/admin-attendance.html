@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>All Attendance — EATS Admin</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div id="global-error" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#fee; border:1px solid #c00; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#c00; z-index:9999;"></div>
+<div id="global-success" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#efe; border:1px solid #080; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#080; z-index:9999;"></div>
+
+<div class="app-layout">
+
+  <aside class="sidebar admin">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🛡️</div>
+      <span class="sidebar-logo-text">EATS</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="window.location.href='/app/admin.html'">
+        <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-users.html'">
+        <span class="nav-icon">👥</span><span class="nav-label">Users</span>
+      </button>
+      <button class="nav-item active">
+        <span class="nav-icon">📋</span><span class="nav-label">All Attendance</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-reports.html'">
+        <span class="nav-icon">📊</span><span class="nav-label">Reports</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-departments.html'">
+        <span class="nav-icon">🏢</span><span class="nav-label">Departments</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-settings.html'">
+        <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+      </button>
+      <button class="nav-item" id="logoutNav">
+        <span class="nav-icon">🚪</span><span class="nav-label">Logout</span>
+      </button>
+    </nav>
+  </aside>
+
+  <div class="main-area">
+    <header class="main-header">
+      <div class="main-header-title">All Attendance</div>
+      <div class="main-header-right">
+        <span class="header-bell">🔔</span>
+        <span style="font-size:13px;color:#374151">Welcome, <strong id="headerName">Admin</strong></span>
+        <div class="header-avatar" style="background:linear-gradient(135deg,#14532d,#16a34a)" id="headerAvatar">A</div>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <!-- Filters -->
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+        <select id="deptFilter" class="form-input no-icon" style="width:auto;padding:9px 12px">
+          <option value="">All Departments</option>
+          <option value="HR">HR</option>
+          <option value="IT">IT</option>
+          <option value="FINANCE">Finance</option>
+          <option value="OPERATIONS">Operations</option>
+        </select>
+        <select id="statusFilter" class="form-input no-icon" style="width:auto;padding:9px 12px">
+          <option value="">All Statuses</option>
+          <option value="Active">Logged In</option>
+          <option value="Late">Late</option>
+          <option value="Logged Out">Logged Out</option>
+        </select>
+        <button onclick="loadToday()" class="btn-submit green" style="width:auto;padding:9px 20px;font-size:13px">Refresh</button>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2>Today's Attendance</h2>
+          <span id="rowCount" style="font-size:12px;color:#6b7280"></span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Department</th>
+              <th>Login Time</th>
+              <th>Logout Time</th>
+              <th>Duration</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="attendBody">
+            <tr><td colspan="6" class="loading-cell"><div class="spinner"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw 0;
+  const user = currentUser();
+  if (user?.role !== 'admin') window.location.href = '/app/dashboard.html';
+
+  document.getElementById('headerName').textContent   = user?.name || 'Admin';
+  document.getElementById('headerAvatar').textContent = initials(user?.name || 'A');
+
+  document.getElementById('logoutNav').addEventListener('click', async () => {
+    try { await apiFetch('/api/v1/auth/logout', { method:'POST' }); } catch {}
+    clearToken(); window.location.href = '/app/index.html';
+  });
+
+  let allRows = [];
+
+  function render() {
+    const dept   = document.getElementById('deptFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    document.getElementById('rowCount').textContent = `${allRows.length} record${allRows.length!==1?'s':''}`;
+    const tbody = document.getElementById('attendBody');
+    if (!allRows.length) {
+      tbody.textContent = 'No records match filters.';
+      return;
+    }
+    tbody.innerHTML = allRows.map(r => {
+      let badge;
+      if (r.status === 'Active')     badge = '<span class="badge badge-active">Active</span>';
+      else if (r.status === 'Late')  badge = '<span class="badge badge-absent">Late</span>';
+      else                           badge = '<span class="badge badge-present">Present</span>';
+      return `<tr>
+        <td><strong>${escapeHtml(r.name)}</strong></td>
+        <td>${escapeHtml(r.department||'—')}</td>
+        <td>${fmtTime(r.login_time)}</td>
+        <td>${r.logout_time ? fmtTime(r.logout_time) : '- - : - -'}</td>
+        <td>${r.duration}</td>
+        <td>${badge}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function loadToday() {
+    const dept   = document.getElementById('deptFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    let url = '/api/v1/admin/attendance/today';
+    const params = new URLSearchParams();
+    if (dept) params.append('department', dept);
+    if (status) params.append('status', status);
+    if (params.toString()) url += '?' + params.toString();
+    
+    try {
+      allRows = await apiFetch(url);
+      render();
+    } catch (err) {
+      allRows = [];
+      document.getElementById('attendBody').innerHTML = '<tr><td colspan="6" style="color:#ef4444">Failed to load attendance. Please try again.</td></tr>';
+      showError(err.message || 'Failed to load attendance');
+    }
+  }
+
+  document.getElementById('deptFilter').addEventListener('change', loadToday);
+  document.getElementById('statusFilter').addEventListener('change', loadToday);
+  loadToday();
+</script>
+</body>
+</html>

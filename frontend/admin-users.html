@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Manage Users — EATS Admin</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div id="global-error" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#fee; border:1px solid #c00; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#c00; z-index:9999;"></div>
+<div id="global-success" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#efe; border:1px solid #080; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#080; z-index:9999;"></div>
+
+<div class="app-layout">
+
+  <!-- Admin Sidebar -->
+  <aside class="sidebar admin">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🛡️</div>
+      <span class="sidebar-logo-text">EATS</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="window.location.href='/app/admin.html'">
+        <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item active">
+        <span class="nav-icon">👥</span><span class="nav-label">Users</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-attendance.html'">
+        <span class="nav-icon">📋</span><span class="nav-label">All Attendance</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-reports.html'">
+        <span class="nav-icon">📊</span><span class="nav-label">Reports</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-departments.html'">
+        <span class="nav-icon">🏢</span><span class="nav-label">Departments</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-settings.html'">
+        <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+      </button>
+      <button class="nav-item" id="logoutNav">
+        <span class="nav-icon">🚪</span><span class="nav-label">Logout</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-area">
+    <header class="main-header">
+      <div class="main-header-title">Manage Users</div>
+      <div class="main-header-right">
+        <span class="header-bell">🔔</span>
+        <span style="font-size:13px;color:#374151">Welcome, <strong id="headerName">Admin</strong></span>
+        <div class="header-avatar" style="background:linear-gradient(135deg,#14532d,#16a34a)" id="headerAvatar">A</div>
+      </div>
+    </header>
+
+    <div class="main-content">
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2>Manage Users</h2>
+          <div style="display:flex;gap:10px">
+            <button class="btn-add-user" onclick="openAddModal()">+ Add User</button>
+            <button class="btn-add-user" style="background:#f59e0b" onclick="loadPending()">Pending Approvals</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Department</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Approval</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody">
+            <tr><td colspan="8" class="loading-cell"><div class="spinner"></div></td></tr>
+          </tbody>
+        </table>
+
+        <div class="pagination" id="pagination"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div id="addModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:32px;width:100%;max-width:440px;position:relative">
+    <button onclick="closeAddModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;color:#6b7280;cursor:pointer">✕</button>
+    <h2 style="font-size:17px;font-weight:700;margin-bottom:20px;color:#111827">Add New User</h2>
+    <div id="modalAlert" class="auth-alert error"></div>
+    <div class="form-group">
+      <label class="form-label">Full Name</label>
+      <input id="newName" type="text" class="form-input no-icon" placeholder="Full name" required/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input id="newEmail" type="email" class="form-input no-icon" placeholder="email@company.com" required/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Department</label>
+      <select id="newDept" class="form-input no-icon" required>
+        <option value="" disabled selected>Select department</option>
+        <option value="HR">HR</option>
+        <option value="IT">IT</option>
+        <option value="FINANCE">Finance</option>
+        <option value="OPERATIONS">Operations</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input id="newPw" type="password" class="form-input no-icon" placeholder="Min 6 characters" required minlength="6"/>
+    </div>
+    <button onclick="submitAddUser()" id="addBtn"
+            style="width:100%;padding:12px;border-radius:8px;border:none;background:#f97316;color:#fff;font-size:14px;font-weight:600">
+      Create Account
+    </button>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:32px;width:100%;max-width:440px;position:relative">
+    <button onclick="closeEditModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;color:#6b7280;cursor:pointer">✕</button>
+    <h2 style="font-size:17px;font-weight:700;margin-bottom:20px;color:#111827">Edit User</h2>
+    <div id="editModalAlert" class="auth-alert error"></div>
+    <input id="editUserId" type="hidden"/>
+    <div class="form-group">
+      <label class="form-label">Full Name</label>
+      <input id="editName" type="text" class="form-input no-icon" placeholder="Full name" required/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input id="editEmail" type="email" class="form-input no-icon" placeholder="email@company.com" required/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Department</label>
+      <select id="editDept" class="form-input no-icon" required>
+        <option value="">Select department</option>
+        <option value="HR">HR</option>
+        <option value="IT">IT</option>
+        <option value="FINANCE">Finance</option>
+        <option value="OPERATIONS">Operations</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Role</label>
+      <select id="editRole" class="form-input no-icon" required>
+        <option value="employee">Employee</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select id="editActive" class="form-input no-icon" required>
+        <option value="true">Active</option>
+        <option value="false">Inactive</option>
+      </select>
+    </div>
+    <button onclick="submitEditUser()" id="editBtn"
+            style="width:100%;padding:12px;border-radius:8px;border:none;background:#3b82f6;color:#fff;font-size:14px;font-weight:600">
+      Update User
+    </button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw 0;
+  const user = currentUser();
+  if (user?.role !== 'admin') window.location.href = '/app/dashboard.html';
+
+  document.getElementById('headerName').textContent   = user?.name || 'Admin';
+  document.getElementById('headerAvatar').textContent = initials(user?.name || 'A');
+
+  document.getElementById('logoutNav').addEventListener('click', async () => {
+    try { await apiFetch('/api/v1/auth/logout', { method:'POST' }); } catch {}
+    clearToken(); window.location.href = '/app/index.html';
+  });
+
+  // ── Pagination state ──────────────────────────────────────────────────
+  let allUsers = [], page = 1, perPage = 5, showingPending = false;
+
+  function renderUsers() {
+    const start = (page-1)*perPage;
+    const slice = allUsers.slice(start, start+perPage);
+    const tbody = document.getElementById('usersBody');
+
+    if (!slice.length) {
+      tbody.textContent = showingPending ? 'No pending approvals.' : 'No users found.';
+    } else {
+      tbody.innerHTML = slice.map(u => `<tr>
+        <td style="color:#6b7280">${u.id}</td>
+        <td><strong>${escapeHtml(u.name)}</strong></td>
+        <td style="color:#6b7280;font-size:12px">${escapeHtml(u.email)}</td>
+        <td>${u.department || '—'}</td>
+        <td><span style="font-size:12px;color:${u.role==='admin'?'#d97706':'#374151'}">${u.role}</span></td>
+        <td>${u.is_active
+          ? '<span style="font-size:12px;font-weight:600;color:#059669">Active</span>'
+          : '<span style="font-size:12px;font-weight:600;color:#ef4444">Inactive</span>'}</td>
+        <td>${u.is_approved !== false
+          ? '<span style="font-size:12px;font-weight:600;color:#059669">Approved</span>'
+          : '<span style="font-size:12px;font-weight:600;color:#f59e0b">Pending</span>'}</td>
+        <td>
+          <div class="action-btns">
+            ${!u.is_approved ? `<button class="btn-edit" style="background:#10b981" onclick="approveUser(${u.id})" title="Approve">✓</button>` : ''}
+            <button class="btn-edit" onclick="openEditModal(${u.id}, '${escapeHtml(u.name)}', '${escapeHtml(u.email)}', '${u.department||''}', '${u.role}', ${u.is_active})" title="Edit">✏️</button>
+            <button class="btn-delete" onclick="deleteUser(${u.id})" title="Delete">🗑️</button>
+          </div>
+        </td>
+      </tr>`).join('');
+    }
+
+    // Pagination
+    const totalPages = Math.max(1, Math.ceil(allUsers.length / perPage));
+    const pg = document.getElementById('pagination');
+    let html = `<button class="page-btn" onclick="changePage(${page-1})" ${page===1?'disabled':''}>‹</button>`;
+    for (let i=1; i<=totalPages; i++) {
+      html += `<button class="page-btn ${i===page?'active':''}" onclick="changePage(${i})">${i}</button>`;
+    }
+    html += `<button class="page-btn" onclick="changePage(${page+1})" ${page===totalPages?'disabled':''}>›</button>`;
+    pg.innerHTML = html;
+  }
+
+  function changePage(p) {
+    const totalPages = Math.ceil(allUsers.length / perPage);
+    if (p < 1 || p > totalPages) return;
+    page = p;
+    renderUsers();
+  }
+
+  async function loadUsers() {
+    showingPending = false;
+    try {
+      const response = await apiFetch('/api/v1/admin/employees');
+      // Backend returns paginated response: { data: [...], total, page, page_size, pages }
+      allUsers = response.data || [];
+      renderUsers();
+    } catch (err) {
+      allUsers = [];
+      document.getElementById('usersBody').innerHTML = '<tr><td colspan="8" style="color:#ef4444">Failed to load users. Please try again.</td></tr>';
+      showError(err.message || 'Failed to load users');
+    }
+  }
+
+  async function loadPending() {
+    showingPending = true;
+    try {
+      allUsers = await apiFetch('/api/v1/admin/users/pending');
+      renderUsers();
+    } catch (err) {
+      allUsers = [];
+      document.getElementById('usersBody').innerHTML = '<tr><td colspan="8" style="color:#ef4444">Failed to load pending users. Please try again.</td></tr>';
+      showError(err.message || 'Failed to load pending users');
+    }
+  }
+
+  async function approveUser(id) {
+    try {
+      await apiFetch(`/api/v1/admin/users/${id}/approve`, { method:'POST' });
+      if (showingPending) {
+        await loadPending();
+      } else {
+        await loadUsers();
+      }
+      showSuccess('User approved successfully');
+    } catch (err) {
+      showError(err.message || 'Failed to approve user');
+    }
+  }
+
+  // ── Add user modal ─────────────────────────────────────────────────────
+  function openAddModal() {
+    document.getElementById('addModal').style.display = 'flex';
+    document.getElementById('modalAlert').className = 'auth-alert error';
+  }
+  function closeAddModal() {
+    document.getElementById('addModal').style.display = 'none';
+  }
+
+  async function submitAddUser() {
+    const alertEl = document.getElementById('modalAlert');
+    const addBtn  = document.getElementById('addBtn');
+    alertEl.className = 'auth-alert error';
+
+    const name  = document.getElementById('newName').value.trim();
+    const email = document.getElementById('newEmail').value.trim();
+    const dept  = document.getElementById('newDept').value;
+    const pw    = document.getElementById('newPw').value;
+
+    if (!name || !email || !dept || !pw) {
+      alertEl.textContent = 'All fields are required.';
+      alertEl.className = 'auth-alert error show'; return;
+    }
+
+    addBtn.disabled = true; addBtn.textContent = 'Creating…';
+    try {
+      await apiFetch('/api/v1/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, password: pw, department: dept }),
+      });
+      closeAddModal();
+      await loadUsers();
+      showSuccess('User created successfully');
+    } catch (err) {
+      alertEl.textContent = err.message || 'Failed to create user.';
+      alertEl.className = 'auth-alert error show';
+    } finally {
+      addBtn.disabled = false; addBtn.textContent = 'Create Account';
+    }
+  }
+
+  // ── Edit user modal ─────────────────────────────────────────────────────
+  function openEditModal(id, name, email, dept, role, isActive) {
+    document.getElementById('editUserId').value = id;
+    document.getElementById('editName').value = name;
+    document.getElementById('editEmail').value = email;
+    document.getElementById('editDept').value = dept;
+    document.getElementById('editRole').value = role;
+    document.getElementById('editActive').value = isActive ? 'true' : 'false';
+    document.getElementById('editModal').style.display = 'flex';
+    document.getElementById('editModalAlert').className = 'auth-alert error';
+  }
+  function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+  }
+
+  async function submitEditUser() {
+    const alertEl = document.getElementById('editModalAlert');
+    const editBtn  = document.getElementById('editBtn');
+    alertEl.className = 'auth-alert error';
+
+    const id    = parseInt(document.getElementById('editUserId').value);
+    const name  = document.getElementById('editName').value.trim();
+    const email = document.getElementById('editEmail').value.trim();
+    const dept  = document.getElementById('editDept').value;
+    const role  = document.getElementById('editRole').value;
+    const active = document.getElementById('editActive').value === 'true';
+
+    if (!name || !email || !dept || !role) {
+      alertEl.textContent = 'All fields are required.';
+      alertEl.className = 'auth-alert error show'; return;
+    }
+
+    editBtn.disabled = true; editBtn.textContent = 'Updating…';
+    try {
+      await apiFetch(`/api/v1/admin/users/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name, email, department: dept, role, is_active: active }),
+      });
+      closeEditModal();
+      await loadUsers();
+      showSuccess('User updated successfully');
+    } catch (err) {
+      alertEl.textContent = err.message || 'Failed to update user.';
+      alertEl.className = 'auth-alert error show';
+    } finally {
+      editBtn.disabled = false; editBtn.textContent = 'Update User';
+    }
+  }
+
+  // ── Delete user ─────────────────────────────────────────────────────────
+  async function deleteUser(id) {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+    try {
+      await apiFetch(`/api/v1/admin/users/${id}`, { method: 'DELETE' });
+      await loadUsers();
+      showSuccess('User deleted successfully');
+    } catch (err) {
+      showError(err.message || 'Failed to delete user');
+    }
+  }
+
+  loadUsers();
+</script>
+</body>
+</html>

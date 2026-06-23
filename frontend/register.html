@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Register — EATS</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div id="global-error" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#fee; border:1px solid #c00; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#c00; z-index:9999;"></div>
+<div id="global-success" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#efe; border:1px solid #080; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#080; z-index:9999;"></div>
+
+<div class="auth-page">
+
+  <!-- Left panel -->
+  <div class="auth-panel purple">
+    <div class="auth-panel-logo">
+      <div class="auth-panel-icon">👤</div>
+      <div class="auth-panel-title">Welcome to</div>
+      <div class="auth-panel-brand">EATS</div>
+      <div class="auth-panel-sub">Employee Attendance<br>Tracking System</div>
+    </div>
+    <img src="register_illustration.png" class="auth-panel-illus" alt="Register illustration"/>
+  </div>
+
+  <!-- Right form -->
+  <div class="auth-form-panel">
+    <div class="auth-form-box">
+      <h1 class="auth-form-title" style="color:#7c3aed;font-size:24px">Create Your Account</h1>
+      <div style="width:48px;height:3px;background:#7c3aed;border-radius:2px;margin-bottom:24px"></div>
+
+      <div id="alert" class="auth-alert error"></div>
+      <div id="success" class="auth-alert success"></div>
+
+      <form id="regForm">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input id="name" type="text" class="form-input" placeholder="Enter your full name" required/>
+          </div>
+          <span id="name-error" class="field-error" style="display:none; color:#ef4444; font-size:0.8em; margin-top:4px;"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <div class="input-wrap">
+            <span class="input-icon">✉</span>
+            <input id="email" type="email" class="form-input" placeholder="Enter your email" required/>
+          </div>
+          <span id="email-error" class="field-error" style="display:none; color:#ef4444; font-size:0.8em; margin-top:4px;"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Department</label>
+          <div class="input-wrap">
+            <span class="input-icon">🏢</span>
+            <select id="department" class="form-input" required>
+              <option value="" disabled selected>Select department</option>
+              <option value="HR">HR</option>
+              <option value="IT">IT</option>
+              <option value="FINANCE">Finance</option>
+              <option value="OPERATIONS">Operations</option>
+            </select>
+          </div>
+          <span id="department-error" class="field-error" style="display:none; color:#ef4444; font-size:0.8em; margin-top:4px;"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input id="password" type="password" class="form-input" placeholder="Enter password" required minlength="6"/>
+            <button type="button" class="toggle-pw" onclick="togglePw('password',this)">👁</button>
+          </div>
+          <span id="password-error" class="field-error" style="display:none; color:#ef4444; font-size:0.8em; margin-top:4px;"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Confirm Password</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input id="confirmPassword" type="password" class="form-input" placeholder="Confirm password" required minlength="6"/>
+            <button type="button" class="toggle-pw" onclick="togglePw('confirmPassword',this)">👁</button>
+          </div>
+          <span id="confirmPassword-error" class="field-error" style="display:none; color:#ef4444; font-size:0.8em; margin-top:4px;"></span>
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn-submit purple">Create Account</button>
+      </form>
+
+      <p class="auth-footer">Already have an account? <a href="/app/index.html">Login</a></p>
+    </div>
+  </div>
+
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  redirectIfLoggedIn();
+
+  function togglePw(id, btn) {
+    const el = document.getElementById(id);
+    el.type = el.type === 'password' ? 'text' : 'password';
+    btn.textContent = el.type === 'password' ? '👁' : '🙈';
+  }
+
+  const alertEl   = document.getElementById('alert');
+  const successEl = document.getElementById('success');
+  const btn       = document.getElementById('submitBtn');
+
+  document.getElementById('regForm').addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const valid = validateForm([
+      { id: 'name', label: 'Full Name', rules: { required: true, minLength: 2 } },
+      { id: 'email', label: 'Email', rules: { required: true, email: true } },
+      { id: 'department', label: 'Department', rules: { required: true } },
+      { id: 'password', label: 'Password', rules: { required: true, minLength: 6 } },
+      { id: 'confirmPassword', label: 'Confirm Password', rules: { required: true, minLength: 6 } },
+    ]);
+    if (!valid) return;
+
+    alertEl.className = 'auth-alert error';
+    successEl.className = 'auth-alert success';
+
+    const pw = document.getElementById('password').value;
+    const cf = document.getElementById('confirmPassword').value;
+    if (pw !== cf) {
+      showError('Passwords do not match.');
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      await apiFetch('/api/v1/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          name:       document.getElementById('name').value.trim(),
+          email:      document.getElementById('email').value.trim(),
+          password:   pw,
+          department: document.getElementById('department').value,
+        }),
+      });
+      successEl.textContent = '✓ Account created! Redirecting to login…';
+      successEl.className = 'auth-alert success show';
+      setTimeout(() => window.location.href = '/app/index.html', 1800);
+    } catch (err) {
+      showError(err.message || 'Registration failed.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Create Account';
+    }
+  });
+</script>
+</body>
+</html>

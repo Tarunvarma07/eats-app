@@ -1,0 +1,14 @@
+# EATS Desktop Activity Agent — Python dependencies
+
+# HTTP client — lightweight, no heavy deps
+requests>=2.31.0
+
+# Cross-platform keyboard + mouse idle detection
+# Windows: uses Win32 API under the hood
+# macOS: requires Accessibility permission (System Preferences → Security → Accessibility)
+# Linux: uses Xlib (install python3-xlib on Debian/Ubuntu)
+pynput>=1.7.6
+
+# Secure token storage (OS keychain / Credential Manager / Keychain Access)
+# Falls back to in-memory if unavailable
+keyring>=24.0.0

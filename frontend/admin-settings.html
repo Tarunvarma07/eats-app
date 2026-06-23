@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Settings — EATS Admin</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div id="global-error" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#fee; border:1px solid #c00; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#c00; z-index:9999;"></div>
+<div id="global-success" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#efe; border:1px solid #080; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#080; z-index:9999;"></div>
+
+<div class="app-layout">
+
+  <aside class="sidebar admin">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🛡️</div>
+      <span class="sidebar-logo-text">EATS</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="window.location.href='/app/admin.html'">
+        <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-users.html'">
+        <span class="nav-icon">👥</span><span class="nav-label">Users</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-attendance.html'">
+        <span class="nav-icon">📋</span><span class="nav-label">All Attendance</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-reports.html'">
+        <span class="nav-icon">📊</span><span class="nav-label">Reports</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-departments.html'">
+        <span class="nav-icon">🏢</span><span class="nav-label">Departments</span>
+      </button>
+      <button class="nav-item active">
+        <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+      </button>
+      <button class="nav-item" id="logoutNav">
+        <span class="nav-icon">🚪</span><span class="nav-label">Logout</span>
+      </button>
+    </nav>
+  </aside>
+
+  <div class="main-area">
+    <header class="main-header">
+      <div class="main-header-title">Settings</div>
+      <div class="main-header-right">
+        <span class="header-bell">🔔</span>
+        <span style="font-size:13px;color:#374151">Welcome, <strong id="headerName">Admin</strong></span>
+        <div class="header-avatar" style="background:linear-gradient(135deg,#14532d,#16a34a)" id="headerAvatar">A</div>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2>System Settings</h2>
+        </div>
+        <div style="max-width:600px;padding:20px">
+          <div class="form-group">
+            <label class="form-label">Working Hours Start</label>
+            <input type="time" class="form-input no-icon" value="09:00" readonly/>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px">Default start time for attendance tracking</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Working Hours End</label>
+            <input type="time" class="form-input no-icon" value="18:00" readonly/>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px">Default end time for attendance tracking</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Grace Period (minutes)</label>
+            <input type="number" class="form-input no-icon" value="15" readonly/>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px">Allowed lateness before marking as late</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Session Timeout (minutes)</label>
+            <input type="number" class="form-input no-icon" value="90" readonly/>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px">Idle time before warning is shown</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Default Department</label>
+            <select class="form-input no-icon" readonly>
+              <option value="IT">IT</option>
+              <option value="HR">HR</option>
+              <option value="FINANCE">Finance</option>
+              <option value="OPERATIONS">Operations</option>
+            </select>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px">Default department for new users</div>
+          </div>
+          <div style="margin-top:20px;padding:15px;background:#f3f4f6;border-radius:8px">
+            <div style="font-weight:600;color:#374151;margin-bottom:8px">System Information</div>
+            <div style="font-size:13px;color:#6b7280">Version: 1.0.0</div>
+            <div style="font-size:13px;color:#6b7280">Database: PostgreSQL</div>
+            <div style="font-size:13px;color:#6b7280">Status: <span style="color:#059669;font-weight:600">Online</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw 0;
+  const user = currentUser();
+  if (user?.role !== 'admin') window.location.href = '/app/dashboard.html';
+
+  document.getElementById('headerName').textContent   = user?.name || 'Admin';
+  document.getElementById('headerAvatar').textContent = initials(user?.name || 'A');
+
+  document.getElementById('logoutNav').addEventListener('click', async () => {
+    try { await apiFetch('/api/v1/auth/logout', { method:'POST' }); } catch {}
+    clearToken(); window.location.href = '/app/index.html';
+  });
+</script>
+</body>
+</html>

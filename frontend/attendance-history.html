@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Attendance History — EATS</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div id="global-error" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#fee; border:1px solid #c00; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#c00; z-index:9999;"></div>
+<div id="global-success" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#efe; border:1px solid #080; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#080; z-index:9999;"></div>
+
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar emp">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🛡️</div>
+      <span class="sidebar-logo-text">EATS</span>
+      <span class="sidebar-logo-bell">🔔</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="window.location.href='/app/dashboard.html'">
+        <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/dashboard.html'">
+        <span class="nav-icon">📅</span><span class="nav-label">My Attendance</span>
+      </button>
+      <button class="nav-item active">
+        <span class="nav-icon">📋</span><span class="nav-label">Attendance History</span>
+      </button>
+      <button class="nav-item">
+        <span class="nav-icon">👤</span><span class="nav-label">Profile</span>
+      </button>
+      <button class="nav-item">
+        <span class="nav-icon">🔑</span><span class="nav-label">Change Password</span>
+      </button>
+      <button class="nav-item" id="logoutNav">
+        <span class="nav-icon">🚪</span><span class="nav-label">Logout</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-area">
+    <header class="main-header">
+      <div class="main-header-title">Attendance History</div>
+      <div class="main-header-right">
+        <span class="header-bell">🔔</span>
+        <span style="font-size:13px;color:#374151">Welcome, <strong id="headerName"></strong></span>
+        <div class="header-avatar" id="headerAvatar">S</div>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <!-- Date Range Filter -->
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center">
+        <input id="startDate" type="date" class="form-input no-icon" style="width:auto;padding:9px 12px"/>
+        <span style="color:#6b7280">to</span>
+        <input id="endDate" type="date" class="form-input no-icon" style="width:auto;padding:9px 12px"/>
+        <button onclick="loadHistory()" class="btn-submit green" style="width:auto;padding:9px 20px;font-size:13px">Filter</button>
+        <button onclick="clearFilter()" class="btn-submit" style="width:auto;padding:9px 20px;font-size:13px;background:#9ca3af">Clear</button>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2>Attendance History</h2>
+          <span id="sessionCount" style="font-size:12px;color:#6b7280"></span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Login Time</th>
+              <th>Logout Time</th>
+              <th>Total Duration</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="histBody">
+            <tr><td colspan="5" class="loading-cell"><div class="spinner"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw 0;
+  const user = currentUser();
+  if (user?.role === 'admin') window.location.href = '/app/admin.html';
+
+  document.getElementById('headerName').textContent   = user?.name || 'Employee';
+  document.getElementById('headerAvatar').textContent = initials(user?.name || '?');
+
+  document.getElementById('logoutNav').addEventListener('click', async () => {
+    try { await apiFetch('/api/v1/auth/logout', { method:'POST' }); } catch {}
+    clearToken(); window.location.href = '/app/index.html';
+  });
+
+  async function load() {
+    try {
+      const response = await apiFetch('/api/v1/attendance/me');
+      // Backend returns paginated response: { data: [...], total, page, page_size, pages }
+      const rows = response.data || [];
+      const tbody = document.getElementById('histBody');
+
+      document.getElementById('sessionCount').textContent =
+        `${rows.length} session${rows.length !== 1 ? 's' : ''}`;
+
+      if (!rows.length) {
+        tbody.textContent = 'No attendance records yet.';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => {
+        const isActive  = !r.logout_time;
+        const isLate    = r.is_late;
+        let statusHtml;
+        if (isActive) {
+          statusHtml = '<span class="badge badge-active">Active</span>';
+        } else if (isLate) {
+          statusHtml = '<span class="badge badge-absent">Late</span>';
+        } else {
+          statusHtml = '<span class="badge badge-present">Present</span>';
+        }
+        return `<tr>
+          <td>${fmtDate(r.login_time)}</td>
+          <td>${fmtTime(r.login_time)}</td>
+          <td>${isActive ? '- - : - -' : fmtTime(r.logout_time)}</td>
+          <td>${isActive ? '—' : r.duration}</td>
+          <td>${statusHtml}</td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      document.getElementById('histBody').innerHTML = '<tr><td colspan="5" style="color:#ef4444">Failed to load attendance history. Please try again.</td></tr>';
+      showError(err.message || 'Failed to load attendance history');
+    }
+  }
+
+  async function loadHistory() {
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    let url = '/api/v1/attendance/me';
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (params.toString()) url += '?' + params.toString();
+    
+    try {
+      const response = await apiFetch(url);
+      // Backend returns paginated response: { data: [...], total, page, page_size, pages }
+      const rows = response.data || [];
+      const tbody = document.getElementById('histBody');
+
+      document.getElementById('sessionCount').textContent =
+        `${rows.length} session${rows.length !== 1 ? 's' : ''}`;
+
+      if (!rows.length) {
+        tbody.textContent = 'No attendance records match the filter.';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => {
+        const isActive  = !r.logout_time;
+        const isLate    = r.is_late;
+        let statusHtml;
+        if (isActive) {
+          statusHtml = '<span class="badge badge-active">Active</span>';
+        } else if (isLate) {
+          statusHtml = '<span class="badge badge-absent">Late</span>';
+        } else {
+          statusHtml = '<span class="badge badge-present">Present</span>';
+        }
+        return `<tr>
+          <td>${fmtDate(r.login_time)}</td>
+          <td>${fmtTime(r.login_time)}</td>
+          <td>${isActive ? '- - : - -' : fmtTime(r.logout_time)}</td>
+          <td>${isActive ? '—' : r.duration}</td>
+          <td>${statusHtml}</td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      document.getElementById('histBody').innerHTML = '<tr><td colspan="5" style="color:#ef4444">Failed to load attendance history. Please try again.</td></tr>';
+      showError(err.message || 'Failed to load attendance history');
+    }
+  }
+
+  function clearFilter() {
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+    load();
+  }
+
+  load();
+</script>
+</body>
+</html>

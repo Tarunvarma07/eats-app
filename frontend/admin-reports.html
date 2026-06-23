@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Reports — EATS Admin</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div id="global-error" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#fee; border:1px solid #c00; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#c00; z-index:9999;"></div>
+<div id="global-success" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#efe; border:1px solid #080; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#080; z-index:9999;"></div>
+
+<div class="app-layout">
+
+  <aside class="sidebar admin">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🛡️</div>
+      <span class="sidebar-logo-text">EATS</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="window.location.href='/app/admin.html'">
+        <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-users.html'">
+        <span class="nav-icon">👥</span><span class="nav-label">Users</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-attendance.html'">
+        <span class="nav-icon">📋</span><span class="nav-label">All Attendance</span>
+      </button>
+      <button class="nav-item active">
+        <span class="nav-icon">📊</span><span class="nav-label">Reports</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-departments.html'">
+        <span class="nav-icon">🏢</span><span class="nav-label">Departments</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-settings.html'">
+        <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+      </button>
+      <button class="nav-item" id="logoutNav">
+        <span class="nav-icon">🚪</span><span class="nav-label">Logout</span>
+      </button>
+    </nav>
+  </aside>
+
+  <div class="main-area">
+    <header class="main-header">
+      <div class="main-header-title">Reports</div>
+      <div class="main-header-right">
+        <span class="header-bell">🔔</span>
+        <span style="font-size:13px;color:#374151">Welcome, <strong id="headerName">Admin</strong></span>
+        <div class="header-avatar" style="background:linear-gradient(135deg,#14532d,#16a34a)" id="headerAvatar">A</div>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2>Weekly Report</h2>
+          <button onclick="loadWeekly()" class="btn-submit green" style="width:auto;padding:9px 20px;font-size:13px">Refresh</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Department</th>
+              <th>Total Hours</th>
+              <th>Days Worked</th>
+            </tr>
+          </thead>
+          <tbody id="weeklyBody">
+            <tr><td colspan="4" class="loading-cell"><div class="spinner"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-card" style="margin-top:20px">
+        <div class="table-card-header">
+          <h2>Monthly Report</h2>
+          <div style="display:flex;gap:10px">
+            <input id="reportMonth" type="month" class="form-input no-icon" style="width:auto;padding:9px 12px"/>
+            <button onclick="loadMonthly()" class="btn-submit green" style="width:auto;padding:9px 20px;font-size:13px">Load</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Department</th>
+              <th>Total Hours</th>
+              <th>Days Worked</th>
+            </tr>
+          </thead>
+          <tbody id="monthlyBody">
+            <tr><td colspan="4" class="loading-cell"><div class="spinner"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw 0;
+  const user = currentUser();
+  if (user?.role !== 'admin') window.location.href = '/app/dashboard.html';
+
+  document.getElementById('headerName').textContent   = user?.name || 'Admin';
+  document.getElementById('headerAvatar').textContent = initials(user?.name || 'A');
+
+  document.getElementById('logoutNav').addEventListener('click', async () => {
+    try { await apiFetch('/api/v1/auth/logout', { method:'POST' }); } catch {}
+    clearToken(); window.location.href = '/app/index.html';
+  });
+
+  // Set default month to current month
+  const now = new Date();
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  document.getElementById('reportMonth').value = defaultMonth;
+
+  async function loadWeekly() {
+    try {
+      const rows = await apiFetch('/api/v1/admin/report/weekly');
+      const tbody = document.getElementById('weeklyBody');
+      
+      if (!rows.length) {
+        tbody.textContent = 'No weekly data available.';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => `<tr>
+        <td><strong>${escapeHtml(r.name)}</strong></td>
+        <td>${escapeHtml(r.department || '—')}</td>
+        <td>${r.total_hours || '0h'}</td>
+        <td>${r.session_count || 0}</td>
+      </tr>`).join('');
+    } catch (err) {
+      document.getElementById('weeklyBody').innerHTML = '<tr><td colspan="4" style="color:#ef4444">Failed to load weekly report. Please try again.</td></tr>';
+      showError(err.message || 'Failed to load weekly report');
+    }
+  }
+
+  async function loadMonthly() {
+    const monthInput = document.getElementById('reportMonth').value;
+    if (!monthInput) {
+      showError('Please select a month');
+      return;
+    }
+
+    const [year, month] = monthInput.split('-');
+    
+    try {
+      const rows = await apiFetch(`/api/v1/admin/report/monthly?year=${year}&month=${month}`);
+      const tbody = document.getElementById('monthlyBody');
+      
+      if (!rows.length) {
+        tbody.textContent = 'No monthly data available for this period.';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => `<tr>
+        <td><strong>${escapeHtml(r.name)}</strong></td>
+        <td>${escapeHtml(r.department || '—')}</td>
+        <td>${r.total_hours || '0h'}</td>
+        <td>${r.session_count || 0}</td>
+      </tr>`).join('');
+    } catch (err) {
+      document.getElementById('monthlyBody').innerHTML = '<tr><td colspan="4" style="color:#ef4444">Failed to load monthly report. Please try again.</td></tr>';
+      showError(err.message || 'Failed to load monthly report');
+    }
+  }
+
+  loadWeekly();
+  loadMonthly();
+</script>
+</body>
+</html>

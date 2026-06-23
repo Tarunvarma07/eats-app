@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Activity Monitoring — EATS Admin</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── Activity-specific styles ── */
+    .pct-bar-bg {
+      background: #f3f4f6; border-radius: 99px; height: 8px;
+      width: 120px; overflow: hidden; flex-shrink: 0;
+    }
+    .pct-bar-fill { height: 100%; border-radius: 99px; transition: width .4s; }
+    .pct-cell { display: flex; align-items: center; gap: 8px; }
+    .pct-label { font-size: 12px; font-weight: 600; width: 40px; flex-shrink: 0; }
+
+    .loc-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600;
+    }
+    .loc-office  { background: #dbeafe; color: #1d4ed8; }
+    .loc-remote  { background: #fce7f3; color: #be185d; }
+    .loc-unknown { background: #f3f4f6; color: #6b7280; }
+
+    .hb-dot {
+      width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+      margin-right: 4px;
+    }
+    .hb-active { background: #10b981; }
+    .hb-idle   { background: #f97316; }
+    .hb-none   { background: #d1d5db; }
+
+    .tab-row { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab-btn {
+      padding: 8px 18px; border-radius: 8px; border: 1.5px solid #e5e7eb;
+      background: #fff; font-size: 13px; font-weight: 500; color: #374151;
+      cursor: pointer; transition: all .15s;
+    }
+    .tab-btn.active {
+      background: #14532d; border-color: #14532d; color: #fff;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.show { display: block; }
+
+    .drill-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .drill-modal.show { display: flex; }
+    .drill-box {
+      background: #fff; border-radius: 14px; width: 100%; max-width: 680px;
+      max-height: 85vh; overflow-y: auto; padding: 28px; position: relative;
+    }
+    .drill-close {
+      position: absolute; top: 14px; right: 16px;
+      background: none; border: none; font-size: 20px; color: #9ca3af; cursor: pointer;
+    }
+
+    .summary-mini { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .mini-card {
+      flex: 1; min-width: 100px; border-radius: 10px;
+      padding: 12px 14px; text-align: center;
+    }
+    .mini-card .num { font-size: 22px; font-weight: 800; }
+    .mini-card .lbl { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- Admin Sidebar -->
+  <aside class="sidebar admin">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🛡️</div>
+      <span class="sidebar-logo-text">EATS</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="window.location.href='/app/admin.html'">
+        <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-users.html'">
+        <span class="nav-icon">👥</span><span class="nav-label">Users</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/admin-attendance.html'">
+        <span class="nav-icon">📋</span><span class="nav-label">All Attendance</span>
+      </button>
+      <button class="nav-item active">
+        <span class="nav-icon">📡</span><span class="nav-label">Activity Monitor</span>
+      </button>
+      <button class="nav-item">
+        <span class="nav-icon">📊</span><span class="nav-label">Reports</span>
+      </button>
+      <button class="nav-item">
+        <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+      </button>
+      <button class="nav-item" id="logoutNav">
+        <span class="nav-icon">🚪</span><span class="nav-label">Logout</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-area">
+    <header class="main-header">
+      <div class="main-header-title">Activity Monitoring</div>
+      <div class="main-header-right">
+        <span style="font-size:12px;color:#9ca3af" id="lastRefresh">—</span>
+        <button onclick="refresh()" style="padding:6px 14px;border-radius:7px;border:1.5px solid #e5e7eb;background:#fff;font-size:12px;cursor:pointer">⟳ Refresh</button>
+        <span class="header-bell">🔔</span>
+        <span style="font-size:13px;color:#374151">Welcome, <strong id="headerName">Admin</strong></span>
+        <div class="header-avatar" style="background:linear-gradient(135deg,#14532d,#16a34a)" id="headerAvatar">A</div>
+      </div>
+    </header>
+
+    <div class="main-content">
+
+      <!-- Summary cards -->
+      <div class="admin-stat-row" style="margin-bottom:20px">
+        <div class="admin-stat-card emp">
+          <div class="asc-label">Total Sessions Today</div>
+          <div class="asc-value" id="sc-total">—</div>
+        </div>
+        <div class="admin-stat-card active">
+          <div class="asc-label">Actively Working</div>
+          <div class="asc-value" id="sc-active">—</div>
+        </div>
+        <div class="admin-stat-card absent">
+          <div class="asc-label">Currently Idle</div>
+          <div class="asc-value" id="sc-idle">—</div>
+        </div>
+        <div class="admin-stat-card out">
+          <div class="asc-label">In Office</div>
+          <div class="asc-value" id="sc-office">—</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="switchTab('today')">Today (Live)</button>
+        <button class="tab-btn" onclick="switchTab('weekly')">Weekly Report</button>
+        <button class="tab-btn" onclick="switchTab('monthly')">Monthly Report</button>
+      </div>
+
+      <!-- TODAY tab -->
+      <div id="tab-today" class="tab-panel show">
+        <div class="table-card">
+          <div class="table-card-header">
+            <h2>Live Activity — Today</h2>
+            <span style="font-size:11px;color:#9ca3af">Click any row for session drill-down</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Location</th>
+                <th>Heartbeat</th>
+                <th>Login</th>
+                <th>Logged (min)</th>
+                <th>Active %</th>
+                <th>Active / Idle</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="todayBody">
+              <tr><td colspan="8" class="loading-cell"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- WEEKLY tab -->
+      <div id="tab-weekly" class="tab-panel">
+        <div class="table-card">
+          <div class="table-card-header"><h2>Weekly Activity Report</h2></div>
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Department</th>
+                <th>Total Hours</th>
+                <th>Avg Active %</th>
+                <th>Office Days</th>
+                <th>Remote Days</th>
+              </tr>
+            </thead>
+            <tbody id="weeklyBody">
+              <tr><td colspan="6" class="loading-cell"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- MONTHLY tab -->
+      <div id="tab-monthly" class="tab-panel">
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+          <select id="monthSel" class="form-input no-icon" style="width:auto;padding:9px 14px">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+          <input id="yearSel" type="number" class="form-input no-icon"
+                 style="width:100px;padding:9px 14px" placeholder="Year"/>
+          <button onclick="loadMonthly()" class="btn-submit green" style="width:auto;padding:9px 20px;font-size:13px">Load</button>
+        </div>
+        <div class="table-card">
+          <div class="table-card-header"><h2>Monthly Activity Report</h2></div>
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Department</th>
+                <th>Total Hours</th>
+                <th>Avg Active %</th>
+                <th>Office Days</th>
+                <th>Remote Days</th>
+              </tr>
+            </thead>
+            <tbody id="monthlyBody">
+              <tr><td colspan="6" style="text-align:center;padding:32px;color:#9ca3af">Select month and click Load.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Drill-down modal -->
+<div class="drill-modal" id="drillModal">
+  <div class="drill-box">
+    <button class="drill-close" onclick="closeDrill()">✕</button>
+    <h2 style="font-size:17px;font-weight:700;margin-bottom:4px" id="drillName">Employee</h2>
+    <p style="font-size:12px;color:#9ca3af;margin-bottom:16px">Session-by-session activity history</p>
+
+    <div class="summary-mini" id="drillSummary"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Login</th>
+          <th>Logout</th>
+          <th>Location</th>
+          <th>Active</th>
+          <th>Idle</th>
+          <th>Active %</th>
+          <th>Heartbeats</th>
+        </tr>
+      </thead>
+      <tbody id="drillBody">
+        <tr><td colspan="8" class="loading-cell"><div class="spinner"></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw 0;
+  const user = currentUser();
+  if (user?.role !== 'admin') window.location.href = '/app/dashboard.html';
+
+  document.getElementById('headerName').textContent   = user?.name || 'Admin';
+  document.getElementById('headerAvatar').textContent = initials(user?.name || 'A');
+
+  document.getElementById('logoutNav').addEventListener('click', async () => {
+    try { await apiFetch('/api/v1/auth/logout', { method: 'POST' }); } catch {}
+    clearToken(); window.location.href = '/app/index.html';
+  });
+
+  // ── month/year defaults ────────────────────────────────────────────────────
+  const now = new Date();
+  document.getElementById('monthSel').value = now.getMonth() + 1;
+  document.getElementById('yearSel').value  = now.getFullYear();
+
+  // ── Tab switching ──────────────────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+      b.classList.toggle('active', ['today','weekly','monthly'][i] === name);
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('show'));
+    document.getElementById('tab-' + name).classList.add('show');
+
+    if (name === 'today')   loadToday();
+    if (name === 'weekly')  loadWeekly();
+    if (name === 'monthly') { /* user clicks Load */ }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function pctBar(pct) {
+    const color = pct >= 70 ? '#10b981' : pct >= 40 ? '#f97316' : '#ef4444';
+    return `<div class="pct-cell">
+      <div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="pct-label" style="color:${color}">${pct}%</span>
+    </div>`;
+  }
+
+  function locBadge(loc, src) {
+    const cls = loc === 'office' ? 'loc-office' : loc === 'remote' ? 'loc-remote' : 'loc-unknown';
+    const icon = loc === 'office' ? '🏢' : loc === 'remote' ? '🏠' : '❓';
+    const srcLabel = src === 'manual' ? ' ✎' : '';
+    return `<span class="loc-badge ${cls}">${icon} ${loc}${srcLabel}</span>`;
+  }
+
+  function hbDot(status) {
+    const cls = status === 'active' ? 'hb-active' : status === 'idle' ? 'hb-idle' : 'hb-none';
+    return `<span class="hb-dot ${cls}"></span>${status || 'no data'}`;
+  }
+
+  function statusBadge(s) {
+    if (s === 'Active')     return '<span class="badge badge-present">Active</span>';
+    if (s === 'Logged Out') return '<span class="badge" style="background:#f3f4f6;color:#374151;border:1px solid #e5e7eb">Logged Out</span>';
+    return `<span class="badge">${s}</span>`;
+  }
+
+  // ── Today ──────────────────────────────────────────────────────────────────
+  let todayData = [];
+
+  async function loadToday() {
+    try {
+      todayData = await apiFetch('/api/v1/admin/activity/today');
+    } catch { todayData = []; }
+
+    // Summary cards
+    const totalSessions = todayData.length;
+    const activeCount   = todayData.filter(r => r.heartbeat_status === 'active').length;
+    const idleCount     = todayData.filter(r => r.heartbeat_status === 'idle').length;
+    const officeCount   = todayData.filter(r => r.work_location === 'office').length;
+
+    document.getElementById('sc-total').textContent  = totalSessions;
+    document.getElementById('sc-active').textContent = activeCount;
+    document.getElementById('sc-idle').textContent   = idleCount;
+    document.getElementById('sc-office').textContent = officeCount;
+    document.getElementById('lastRefresh').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN');
+
+    const tbody = document.getElementById('todayBody');
+    if (!todayData.length) {
+      tbody.textContent = 'No sessions today.';
+      return;
+    }
+
+    tbody.innerHTML = todayData.map(r => `<tr style="cursor:pointer" onclick="openDrill(${r.user_id},'${escapeHtml(r.name).replace(/'/g, "\\'")}')">
+      <td><strong>${escapeHtml(r.name)}</strong><br><span style="font-size:11px;color:#9ca3af">${escapeHtml(r.department||'')}</span></td>
+      <td>${locBadge(r.work_location, r.location_source)}</td>
+      <td>${hbDot(r.heartbeat_status)}</td>
+      <td>${fmtTime(r.login_time)}</td>
+      <td>${r.total_logged_minutes}</td>
+      <td>${pctBar(r.active_percent)}</td>
+      <td>
+        <span style="font-size:12px;color:#059669">▲ ${r.active_minutes}m</span>
+        &nbsp;
+        <span style="font-size:12px;color:#f97316">▼ ${r.idle_minutes}m</span>
+      </td>
+      <td>${statusBadge(r.session_status)}</td>
+    </tr>`).join('');
+  }
+
+  // ── Weekly ─────────────────────────────────────────────────────────────────
+  async function loadWeekly() {
+    document.getElementById('weeklyBody').innerHTML =
+      '<tr><td colspan="6" class="loading-cell"><div class="spinner"></div></td></tr>';
+    try {
+      const rows = await apiFetch('/api/v1/admin/report/activity/weekly');
+      if (!rows.length) {
+        document.getElementById('weeklyBody').innerHTML =
+          '<tr><td colspan="6" style="text-align:center;padding:40px;color:#9ca3af">No data this week.</td></tr>';
+        return;
+      }
+      document.getElementById('weeklyBody').innerHTML = rows.map(r => `<tr>
+        <td><strong>${escapeHtml(r.name)}</strong></td>
+        <td>${escapeHtml(r.department||'—')}</td>
+        <td>${r.total_hours}</td>
+        <td>${pctBar(r.avg_active_percent)}</td>
+        <td><span style="font-size:12px">🏢 ${r.office_days}d</span></td>
+        <td><span style="font-size:12px">🏠 ${r.remote_days}d</span></td>
+      </tr>`).join('');
+    } catch {
+      document.getElementById('weeklyBody').textContent = 'Failed to load.';
+    }
+  }
+
+  // ── Monthly ────────────────────────────────────────────────────────────────
+  async function loadMonthly() {
+    const month = document.getElementById('monthSel').value;
+    const year  = document.getElementById('yearSel').value;
+    document.getElementById('monthlyBody').textContent = 'Loading...';
+    try {
+      const rows = await apiFetch(`/api/v1/admin/report/activity/monthly?year=${year}&month=${month}`);
+      if (!rows.length) {
+        document.getElementById('monthlyBody').textContent = 'No data for this month.';
+        return;
+      }
+      document.getElementById('monthlyBody').innerHTML = rows.map(r => `<tr>
+        <td><strong>${escapeHtml(r.name)}</strong></td>
+        <td>${escapeHtml(r.department||'—')}</td>
+        <td>${r.total_hours}</td>
+        <td>${pctBar(r.avg_active_percent)}</td>
+        <td><span style="font-size:12px">🏢 ${r.office_days}d</span></td>
+        <td><span style="font-size:12px">🏠 ${r.remote_days}d</span></td>
+      </tr>`).join('');
+    } catch {
+      document.getElementById('monthlyBody').textContent = 'Failed to load.';
+    }
+  }
+
+  // ── Drill-down modal ───────────────────────────────────────────────────────
+  async function openDrill(userId, name) {
+    document.getElementById('drillName').textContent = name;
+    document.getElementById('drillModal').classList.add('show');
+    document.getElementById('drillBody').textContent = 'Loading...';
+    document.getElementById('drillSummary').textContent = '';
+
+    try {
+      const sessions = await apiFetch(`/api/v1/admin/activity/${userId}`);
+      if (!sessions.length) {
+        document.getElementById('drillBody').textContent = 'No activity records.';
+        return;
+      }
+
+      // Summary mini cards
+      const totalActive = sessions.reduce((s,r) => s + r.active_minutes, 0);
+      const totalIdle   = sessions.reduce((s,r) => s + r.idle_minutes, 0);
+      const officeDays  = sessions.filter(r => r.work_location === 'office').length;
+      const remoteDays  = sessions.filter(r => r.work_location === 'remote').length;
+      const avgPct      = sessions.length
+        ? (sessions.reduce((s,r) => s + r.active_percent, 0) / sessions.length).toFixed(1)
+        : 0;
+
+      document.getElementById('drillSummary').innerHTML = `
+        <div class="mini-card" style="background:#d1fae5">
+          <div class="num" style="color:#059669">${Math.floor(totalActive/60)}h ${totalActive%60}m</div>
+          <div class="lbl">Total Active</div>
+        </div>
+        <div class="mini-card" style="background:#fff7ed">
+          <div class="num" style="color:#f97316">${Math.floor(totalIdle/60)}h ${totalIdle%60}m</div>
+          <div class="lbl">Total Idle</div>
+        </div>
+        <div class="mini-card" style="background:#ede9fe">
+          <div class="num" style="color:#7c3aed">${avgPct}%</div>
+          <div class="lbl">Avg Active</div>
+        </div>
+        <div class="mini-card" style="background:#dbeafe">
+          <div class="num" style="color:#1d4ed8">${officeDays}</div>
+          <div class="lbl">Office Days</div>
+        </div>
+        <div class="mini-card" style="background:#fce7f3">
+          <div class="num" style="color:#be185d">${remoteDays}</div>
+          <div class="lbl">Remote Days</div>
+        </div>`;
+
+      document.getElementById('drillBody').innerHTML = sessions.map(r => `<tr>
+        <td>${fmtDate(r.login_time)}</td>
+        <td>${fmtTime(r.login_time)}</td>
+        <td>${r.logout_time ? fmtTime(r.logout_time) : '—'}</td>
+        <td>${locBadge(r.work_location, r.location_source)}</td>
+        <td style="color:#059669;font-weight:600">${r.active_minutes}m</td>
+        <td style="color:#f97316;font-weight:600">${r.idle_minutes}m</td>
+        <td>${pctBar(r.active_percent)}</td>
+        <td style="color:#6b7280">${r.total_heartbeats}</td>
+      </tr>`).join('');
+    } catch {
+      document.getElementById('drillBody').innerHTML =
+        '<tr><td colspan="8" style="text-align:center;padding:32px;color:#ef4444">Failed to load.</td></tr>';
+    }
+  }
+
+  function closeDrill() {
+    document.getElementById('drillModal').classList.remove('show');
+  }
+
+  // ── Auto-refresh (30s) ──────────────────────────────────────────────────────
+  function refresh() { loadToday(); }
+  loadToday();
+  setInterval(loadToday, 30_000);
+</script>
+</body>
+</html>

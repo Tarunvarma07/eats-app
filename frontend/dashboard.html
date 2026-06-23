@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Dashboard — EATS</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div id="global-error" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#fee; border:1px solid #c00; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#c00; z-index:9999;"></div>
+<div id="global-success" style="display:none; position:fixed; top:1rem; right:1rem;
+     background:#efe; border:1px solid #080; padding:0.75rem 1.5rem; border-radius:6px;
+     color:#080; z-index:9999;"></div>
+
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar emp" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🛡️</div>
+      <span class="sidebar-logo-text">EATS</span>
+      <span class="sidebar-logo-bell">🔔</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" onclick="goto('dashboard')">
+        <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" onclick="goto('my-attendance')">
+        <span class="nav-icon">📅</span><span class="nav-label">My Attendance</span>
+      </button>
+      <button class="nav-item" onclick="goto('attendance-history')">
+        <span class="nav-icon">📋</span><span class="nav-label">Attendance History</span>
+      </button>
+      <button class="nav-item" onclick="goto('profile')">
+        <span class="nav-icon">👤</span><span class="nav-label">Profile</span>
+      </button>
+      <button class="nav-item" onclick="window.location.href='/app/change-password.html'">
+        <span class="nav-icon">🔑</span><span class="nav-label">Change Password</span>
+      </button>
+      <button class="nav-item" id="logoutNav" style="margin-top:auto">
+        <span class="nav-icon">🚪</span><span class="nav-label">Logout</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-area">
+    <header class="main-header">
+      <div class="main-header-title">Dashboard</div>
+      <div class="main-header-right">
+        <span class="header-bell">🔔</span>
+        <span style="font-size:13px;color:#374151">Welcome, <strong id="headerName"></strong></span>
+        <div class="header-avatar" id="headerAvatar">S</div>
+      </div>
+    </header>
+
+    <!-- Idle Warning Banner -->
+    <div id="idleWarningBanner" style="display:none; background:#fff7ed; border-left:4px solid #f97316; padding:1rem; margin:1rem; border-radius:4px;">
+      <div style="display:flex; align-items:center; gap:0.75rem;">
+        <span style="font-size:1.25rem;">⚠️</span>
+        <div>
+          <div style="font-weight:600; color:#c2410c;">Idle Time Warning</div>
+          <div style="font-size:0.875rem; color:#9a3412;">You have been idle for an extended period. Please ensure you're actively working.</div>
+        </div>
+        <button onclick="dismissIdleWarning()" style="margin-left:auto; background:#fed7aa; border:none; padding:0.5rem 1rem; border-radius:4px; cursor:pointer; font-size:0.875rem; font-weight:500; color:#9a3412;">Dismiss</button>
+      </div>
+    </div>
+
+    <div class="main-content">
+
+      <!-- Login Time / Logout Time / Total Hours cards -->
+      <div class="stat-row" id="sessionCards">
+        <div class="stat-card purple">
+          <div class="stat-card-label">Login Time</div>
+          <div class="stat-card-value" id="loginTime">—</div>
+          <div class="stat-card-sub" id="loginDate" style="color:#7c3aed"></div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-card-label">Logout Time</div>
+          <div class="stat-card-value" id="logoutTime">- - : - -</div>
+          <div class="stat-card-sub" id="sessionState" style="color:#f97316">Active Session</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-card-label">Total Hours</div>
+          <div class="stat-card-value" id="totalHours">—</div>
+          <div class="stat-card-sub" id="hoursState" style="color:#3b82f6">Active</div>
+        </div>
+      </div>
+
+      <!-- Today's Status + Quick Actions -->
+      <div class="two-panel">
+        <div class="panel-card">
+          <div class="panel-card-title">Today's Status</div>
+          <div class="status-badge-lg" id="todayBadge">
+            <span>●</span> Active Session
+          </div>
+          <div class="status-text" id="todayText">You have logged in at <strong id="loginDisplay">—</strong></div>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-title">Quick Actions</div>
+          <div class="qa-row">
+            <button class="btn-login-lg" id="clockInBtn" onclick="handleClockIn()">Login</button>
+            <button class="btn-logout-lg" id="clockOutBtn" onclick="handleClockOut()">Logout</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance Summary -->
+      <div class="panel-card">
+        <div class="panel-card-title">Attendance Summary <span style="font-weight:400;color:#6b7280">(This Month)</span></div>
+        <div class="summary-row" style="margin-top:14px;margin-bottom:0">
+          <div class="summary-card total">
+            <div class="summary-card-num" id="totalDays">0</div>
+            <div class="summary-card-label">Total Days</div>
+          </div>
+          <div class="summary-card present">
+            <div class="summary-card-num" id="presentDays">0</div>
+            <div class="summary-card-label">Present Days</div>
+          </div>
+          <div class="summary-card absent">
+            <div class="summary-card-num" id="absentDays">0</div>
+            <div class="summary-card-label">Absent Days</div>
+          </div>
+          <div class="summary-card half">
+            <div class="summary-card-num" id="halfDays">0</div>
+            <div class="summary-card-label">Half Days</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw 0;
+  const user = currentUser();
+  if (user?.role === 'admin') window.location.href = '/app/admin.html';
+
+  // Populate header
+  document.getElementById('headerName').textContent  = user?.name || 'Employee';
+  document.getElementById('headerAvatar').textContent = initials(user?.name || '?');
+
+  // Nav routing
+  function goto(page) {
+    const map = {
+      'dashboard':          '/app/dashboard.html',
+      'my-attendance':      '/app/dashboard.html',
+      'attendance-history': '/app/attendance-history.html',
+      'profile':            '/app/profile.html',
+    };
+    window.location.href = map[page] || '/app/dashboard.html';
+  }
+
+  document.getElementById('logoutNav').addEventListener('click', doLogout);
+
+  async function doLogout() {
+    try { await apiFetch('/api/v1/auth/logout', { method:'POST' }); } catch {}
+    clearToken(); window.location.href = '/app/index.html';
+  }
+
+  async function handleClockIn() {
+    try {
+      await apiFetch('/api/v1/attendance/clock-in', { method:'POST' });
+      await loadDashboard();
+      showSuccess('Clocked in successfully');
+    } catch (err) {
+      showError(err.message || 'Failed to clock in');
+    }
+  }
+  async function handleClockOut() {
+    try {
+      await apiFetch('/api/v1/attendance/clock-out', { method:'POST' });
+      await loadDashboard();
+      showSuccess('Clocked out successfully');
+    } catch (err) {
+      showError(err.message || 'Failed to clock out');
+    }
+  }
+
+  // Load data
+  async function loadDashboard() {
+    try {
+      const response = await apiFetch('/api/v1/attendance/me');
+      // Backend returns paginated response: { data: [...], total, page, page_size, pages }
+      const sessions = response.data || [];
+      const active   = sessions.find(s => !s.logout_time);
+      const now      = new Date();
+
+      if (active) {
+        const loginDt = new Date(active.login_time);
+        document.getElementById('loginTime').textContent   = fmtTime(active.login_time);
+        document.getElementById('loginDate').textContent   =
+          loginDt.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+        document.getElementById('logoutTime').textContent  = '- - : - -';
+        document.getElementById('sessionState').textContent = 'Active Session';
+        document.getElementById('totalHours').textContent  = 'Active';
+        document.getElementById('hoursState').textContent  = 'Session ongoing';
+        document.getElementById('loginDisplay').textContent = fmtTime(active.login_time);
+        document.getElementById('todayBadge').textContent = '● Active Session';
+        document.getElementById('todayBadge').style.background = '#d1fae5';
+        document.getElementById('todayBadge').style.color = '#059669';
+      } else {
+        document.getElementById('loginTime').textContent  = 'Not In';
+        document.getElementById('logoutTime').textContent = 'Not Out';
+        document.getElementById('totalHours').textContent = '0h';
+        document.getElementById('sessionState').textContent = 'No session';
+        document.getElementById('todayBadge').textContent   = '● Not Logged In';
+        document.getElementById('todayBadge').style.background = '#fee2e2';
+        document.getElementById('todayBadge').style.color = '#dc2626';
+        document.getElementById('loginDisplay').textContent = '—';
+      }
+
+      // Monthly summary
+      const month = now.getMonth(), year = now.getFullYear();
+      const thisMonth = sessions.filter(s => {
+        const d = new Date(s.login_time);
+        return d.getMonth() === month && d.getFullYear() === year;
+      });
+      const workDays = [...new Set(thisMonth.map(s =>
+        new Date(s.login_time).toDateString()
+      ))].length;
+      const late = thisMonth.filter(s => s.is_late).length;
+
+      // Calendar days elapsed this month
+      const daysElapsed = now.getDate();
+
+      document.getElementById('totalDays').textContent   = daysElapsed;
+      document.getElementById('presentDays').textContent = workDays;
+      document.getElementById('absentDays').textContent  = Math.max(0, daysElapsed - workDays);
+      // "Half day" is not tracked in the backend — show 0
+      document.getElementById('halfDays').textContent    = 0;
+
+    } catch {}
+  }
+
+  loadDashboard();
+
+  // Idle warning banner logic
+  let idleStartTime = null;
+  const IDLE_WARNING_THRESHOLD = 90 * 60 * 1000; // 90 minutes in milliseconds
+
+  function resetIdleTimer() {
+    idleStartTime = Date.now();
+    hideIdleWarning();
+  }
+
+  function showIdleWarning() {
+    document.getElementById('idleWarningBanner').style.display = 'block';
+  }
+
+  function hideIdleWarning() {
+    document.getElementById('idleWarningBanner').style.display = 'none';
+  }
+
+  function dismissIdleWarning() {
+    hideIdleWarning();
+  }
+
+  function checkIdleTime() {
+    if (idleStartTime && Date.now() - idleStartTime > IDLE_WARNING_THRESHOLD) {
+      showIdleWarning();
+    }
+  }
+
+  // Track user activity
+  ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(event => {
+    document.addEventListener(event, resetIdleTimer);
+  });
+
+  // Check idle time every minute
+  setInterval(checkIdleTime, 60000);
+  resetIdleTimer(); // Initialize on page load
+</script>
+</body>
+</html>
