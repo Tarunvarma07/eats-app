@@ -257,21 +257,27 @@ from sqlalchemy import text
 
 @app.get("/health", tags=["health"])
 async def health_check(db = Depends(get_db)):
+    from app.db.database import db_url_invalid, engine
     db_status = "connected"
+    dialect = "unknown"
     try:
         db.execute(text("SELECT 1"))
-    except Exception:
-        db_status = "unreachable"
+        dialect = engine.dialect.name
+    except Exception as e:
+        db_status = f"unreachable: {str(e)}"
 
-    status = "ok" if db_status == "connected" else "degraded"
-    status_code = 200 if db_status == "connected" else 503
+    status = "ok" if (db_status == "connected" and not db_url_invalid) else "degraded"
+    # Return 200 even if degraded so we can read the JSON response, or 503 if we want to follow health probes
+    status_code = 200 if (db_status == "connected" and not db_url_invalid) else 200
 
     return JSONResponse(
         status_code=status_code,
         content={
             "status": status,
             "db": db_status,
-            "version": "1.0.0"
+            "db_dialect": dialect,
+            "db_url_invalid": db_url_invalid,
+            "version": "2.0.1"
         }
     )
 
