@@ -1,16 +1,10 @@
 import pytest
 import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 # Set environment variable before importing app
 os.environ["PYTEST_RUNNING"] = "1"
-
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.main import app
-from app.db.database import Base, get_db
-from app.core.security import hash_password, create_access_token
-from app.models.users import User
 
 # Use in-memory SQLite for tests (fast, no external dependency)
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///./test.db"
@@ -20,6 +14,18 @@ engine = create_engine(
     connect_args={"check_same_thread": False}
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Patch the production database SessionLocal and engine so that all modules
+# (including core modules like token_blacklist) use the SQLite test database.
+import app.db.database as db_module
+db_module.SessionLocal = TestingSessionLocal
+db_module.engine = engine
+
+from fastapi.testclient import TestClient
+from app.main import app
+from app.db.database import Base, get_db
+from app.core.security import hash_password, create_access_token
+from app.models.users import User
 
 
 @pytest.fixture(scope="session", autouse=True)

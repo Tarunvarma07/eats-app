@@ -141,9 +141,20 @@ app.add_middleware(
 
 # 3. Trusted host — reject requests with spoofed Host headers
 import os
-allowed_hosts = ["localhost", "127.0.0.1", "*.localhost"]
+from urllib.parse import urlparse
+
+allowed_hosts = ["localhost", "127.0.0.1", "*.localhost", "*.vercel.app"]
 if os.getenv("PYTEST_RUNNING") == "1":
     allowed_hosts.append("testserver")
+
+for origin in settings.allowed_origins_list:
+    try:
+        parsed = urlparse(origin)
+        if parsed.hostname and parsed.hostname not in allowed_hosts:
+            allowed_hosts.append(parsed.hostname)
+    except Exception:
+        pass
+
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=allowed_hosts,
