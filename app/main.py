@@ -66,6 +66,43 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     # Startup
     check_db_connection()
+    
+    # Run startup tasks
+    import os
+    if os.getenv("PYTEST_RUNNING") != "1":
+        from sqlalchemy import text
+        from app.repositories.attendance_repository import AttendanceRepository
+
+        # Add columns to attendance_sessions if they don't exist
+        add_columns_sql = [
+            """ALTER TABLE attendance_sessions
+               ADD COLUMN IF NOT EXISTS work_location VARCHAR(10) DEFAULT 'unknown'""",
+            """ALTER TABLE attendance_sessions
+               ADD COLUMN IF NOT EXISTS location_source VARCHAR(10) DEFAULT 'auto'""",
+            """ALTER TABLE attendance_sessions
+               ADD COLUMN IF NOT EXISTS active_minutes INTEGER""",
+            """ALTER TABLE attendance_sessions
+               ADD COLUMN IF NOT EXISTS idle_minutes INTEGER""",
+        ]
+
+        with engine.begin() as conn:
+            for sql in add_columns_sql:
+                try:
+                    conn.execute(text(sql))
+                except Exception as exc:
+                    print(f"[startup] Column migration skipped: {exc}")
+
+        print("[startup] attendance_sessions schema migration complete.")
+
+        # Close stale sessions
+        db = next(get_db())
+        try:
+            closed = AttendanceRepository.close_stale_sessions(db, hours=12)
+            if closed:
+                print(f"[startup] Closed {closed} stale attendance session(s).")
+        finally:
+            db.close()
+    
     yield
     # Shutdown (cleanup if needed)
 
@@ -222,56 +259,6 @@ async def health_check(db = Depends(get_db)):
             "version": "1.0.0"
         }
     )
-
-
-# ---------------------------------------------------------------------------
-# Startup tasks
-# ---------------------------------------------------------------------------
-@app.on_event("startup")
-def startup_tasks():
-    """
-    1. Safely add the four new columns to attendance_sessions (IF NOT EXISTS).
-       SQLAlchemy's create_all() creates new tables but won't ALTER existing ones.
-       Using raw SQL with IF NOT EXISTS so this is idempotent across restarts.
-
-    2. Close any sessions orphaned by a previous server crash.
-    """
-    import os
-    if os.getenv("PYTEST_RUNNING") == "1":
-        return
-
-    from sqlalchemy import text
-
-    add_columns_sql = [
-        """ALTER TABLE attendance_sessions
-           ADD COLUMN IF NOT EXISTS work_location VARCHAR(10) DEFAULT 'unknown'""",
-        """ALTER TABLE attendance_sessions
-           ADD COLUMN IF NOT EXISTS location_source VARCHAR(10) DEFAULT 'auto'""",
-        """ALTER TABLE attendance_sessions
-           ADD COLUMN IF NOT EXISTS active_minutes INTEGER""",
-        """ALTER TABLE attendance_sessions
-           ADD COLUMN IF NOT EXISTS idle_minutes INTEGER""",
-    ]
-
-    with engine.begin() as conn:
-        for sql in add_columns_sql:
-            try:
-                conn.execute(text(sql))
-            except Exception as exc:
-                print(f"[startup] Column migration skipped: {exc}")
-
-    print("[startup] attendance_sessions schema migration complete.")
-
-    # Close stale sessions
-    from app.repositories.attendance_repository import AttendanceRepository
-
-    db = next(get_db())
-    try:
-        closed = AttendanceRepository.close_stale_sessions(db, hours=12)
-        if closed:
-            print(f"[startup] Closed {closed} stale attendance session(s).")
-    finally:
-        db.close()
 
 
 @app.get("/")
