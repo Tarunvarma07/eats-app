@@ -167,4 +167,4 @@ This project is proprietary software. All rights reserved.
 
 ## Support
 
-For issues and questions, please contact the development team.
+For issues and questions, please contact the varmachintha30@gmail.com.
