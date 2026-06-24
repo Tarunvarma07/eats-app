@@ -9,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 import logging
+import os
 import time
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -234,7 +235,10 @@ app.include_router(admin_activity_router, prefix="/api/v1/admin", tags=["admin"]
 
 # ── Static frontend ───────────────────────────────────────────────────────────
 # Mounted LAST so API routes take priority over static file fallback
-app.mount("/app", StaticFiles(directory="frontend", html=True), name="frontend")
+if os.path.isdir("frontend"):
+    app.mount("/app", StaticFiles(directory="frontend", html=True), name="frontend")
+else:
+    logger.warning("Frontend directory not found. Static files mount skipped.")
 
 
 # ── Health Check Endpoint ─────────────────────────────────────────────────────

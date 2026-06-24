@@ -1,6 +1,9 @@
+import logging
 from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -39,7 +42,7 @@ def check_db_connection():
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        print("✅ Database connection verified")
+        logger.info("Database connection verified")
     except Exception as e:
-        print(f"❌ Database connection failed: {e}")
-        raise SystemExit(1)  # crash early, don't serve traffic with no DB
+        logger.critical(f"Database connection failed: {e}")
+        # Log critical error instead of crashing to allow health checks and routing to respond with clear errors
