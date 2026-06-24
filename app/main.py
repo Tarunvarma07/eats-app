@@ -255,6 +255,24 @@ else:
 # ── Health Check Endpoint ─────────────────────────────────────────────────────
 from sqlalchemy import text
 
+def get_masked_db_url(url: str) -> str:
+    if not url:
+        return "empty"
+    if "://" not in url:
+        return f"invalid URL format (length={len(url)}, prefix={url[:15]})"
+    try:
+        parts = url.split("@", 1)
+        if len(parts) == 2:
+            cred_part, host_part = parts
+            scheme_part, user_pass = cred_part.split("://", 1)
+            user_pass_parts = user_pass.split(":", 1)
+            username = user_pass_parts[0]
+            return f"{scheme_part}://{username}:******@{host_part}"
+        else:
+            return f"no '@' found (length={len(url)}, scheme={url.split('://')[0]})"
+    except Exception as e:
+        return f"masking failed: {str(e)}"
+
 @app.get("/health", tags=["health"])
 async def health_check(db = Depends(get_db)):
     from app.db.database import db_url_invalid, db_url_error, engine
@@ -278,7 +296,8 @@ async def health_check(db = Depends(get_db)):
             "db_dialect": dialect,
             "db_url_invalid": db_url_invalid,
             "db_url_error": db_url_error,
-            "version": "2.0.2"
+            "db_url_masked": get_masked_db_url(settings.DATABASE_URL),
+            "version": "2.0.3"
         }
     )
 
