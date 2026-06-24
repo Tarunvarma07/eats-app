@@ -7,15 +7,22 @@ logger = logging.getLogger(__name__)
 
 
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_size=10,           # number of persistent connections
-    max_overflow=20,        # extra connections beyond pool_size
-    pool_timeout=30,        # seconds to wait for a connection
-    pool_recycle=1800,      # recycle connections every 30 min (prevent stale)
-    pool_pre_ping=True,     # test connection health before use
-    echo=settings.LOG_LEVEL == "DEBUG"  # Only echo SQL in debug mode
-)
+db_url_invalid = False
+try:
+    engine = create_engine(
+        settings.DATABASE_URL,
+        pool_size=10,           # number of persistent connections
+        max_overflow=20,        # extra connections beyond pool_size
+        pool_timeout=30,        # seconds to wait for a connection
+        pool_recycle=1800,      # recycle connections every 30 min (prevent stale)
+        pool_pre_ping=True,     # test connection health before use
+        echo=settings.LOG_LEVEL == "DEBUG"  # Only echo SQL in debug mode
+    )
+except Exception as e:
+    logger.error(f"Error creating SQLAlchemy engine: {e}")
+    # Fallback to an in-memory database to prevent crashes during imports/dry-runs
+    engine = create_engine("sqlite:///:memory:")
+    db_url_invalid = True
 
 
 SessionLocal = sessionmaker(
@@ -39,6 +46,9 @@ def get_db():
 
 def check_db_connection() -> bool:
     """Call this on app startup to verify DB is reachable. Returns True if successful, False otherwise."""
+    if db_url_invalid:
+        logger.critical("Database connection failed: Invalid DATABASE_URL configuration")
+        return False
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
