@@ -37,12 +37,13 @@ def get_db():
         db.close()
 
 
-def check_db_connection():
-    """Call this on app startup to verify DB is reachable."""
+def check_db_connection() -> bool:
+    """Call this on app startup to verify DB is reachable. Returns True if successful, False otherwise."""
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         logger.info("Database connection verified")
+        return True
     except Exception as e:
         logger.critical(f"Database connection failed: {e}")
-        # Log critical error instead of crashing to allow health checks and routing to respond with clear errors
+        return False

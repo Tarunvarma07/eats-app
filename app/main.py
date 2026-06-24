@@ -66,11 +66,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    check_db_connection()
+    db_connected = check_db_connection()
     
     # Run startup tasks
     import os
-    if os.getenv("PYTEST_RUNNING") != "1":
+    if os.getenv("PYTEST_RUNNING") != "1" and db_connected:
         from sqlalchemy import text
         from app.repositories.attendance_repository import AttendanceRepository
 
