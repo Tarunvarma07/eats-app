@@ -257,7 +257,7 @@ from sqlalchemy import text
 
 @app.get("/health", tags=["health"])
 async def health_check(db = Depends(get_db)):
-    from app.db.database import db_url_invalid, engine
+    from app.db.database import db_url_invalid, db_url_error, engine
     db_status = "connected"
     dialect = "unknown"
     try:
@@ -277,7 +277,8 @@ async def health_check(db = Depends(get_db)):
             "db": db_status,
             "db_dialect": dialect,
             "db_url_invalid": db_url_invalid,
-            "version": "2.0.1"
+            "db_url_error": db_url_error,
+            "version": "2.0.2"
         }
     )
 

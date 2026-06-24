@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 db_url_invalid = False
+db_url_error = None
 try:
     engine = create_engine(
         settings.DATABASE_URL,
@@ -23,6 +24,7 @@ except Exception as e:
     # Fallback to an in-memory database to prevent crashes during imports/dry-runs
     engine = create_engine("sqlite:///:memory:")
     db_url_invalid = True
+    db_url_error = str(e)
 
 
 SessionLocal = sessionmaker(
