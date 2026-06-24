@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import (
     BaseSettings,
     SettingsConfigDict
@@ -30,6 +31,20 @@ class Settings(BaseSettings):
     OFFICE_IP_RANGES: str = ""
 
     LOG_LEVEL: str = "INFO"
+
+    @model_validator(mode="before")
+    @classmethod
+    def clean_env_prefixes(cls, data):
+        if not isinstance(data, dict):
+            return data
+        cleaned = {}
+        for key, val in data.items():
+            if isinstance(val, str):
+                prefix = f"{key}="
+                if val.startswith(prefix):
+                    val = val[len(prefix):]
+            cleaned[key] = val
+        return cleaned
 
     @property
     def allowed_origins_list(self) -> list[str]:
