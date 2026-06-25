@@ -1,24 +1,37 @@
+import os
 import logging
 from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import NullPool
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-
 db_url_invalid = False
 db_url_error = None
 try:
-    engine = create_engine(
-        settings.DATABASE_URL,
-        pool_size=10,           # number of persistent connections
-        max_overflow=20,        # extra connections beyond pool_size
-        pool_timeout=30,        # seconds to wait for a connection
-        pool_recycle=1800,      # recycle connections every 30 min (prevent stale)
-        pool_pre_ping=True,     # test connection health before use
-        echo=settings.LOG_LEVEL == "DEBUG"  # Only echo SQL in debug mode
-    )
+    # Build engine arguments dynamically
+    engine_kwargs = {
+        "pool_pre_ping": True,
+        "echo": settings.LOG_LEVEL == "DEBUG"
+    }
+    
+    is_vercel = os.getenv("VERCEL") == "1"
+    is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+    
+    if is_vercel or is_sqlite:
+        # Serverless (Vercel) requires NullPool so Neon's proxy handles pooling.
+        # SQLite also requires NullPool because it doesn't support QueuePool sizing.
+        engine_kwargs["poolclass"] = NullPool
+    else:
+        # Standard connection pooling for long-running servers (e.g. Docker, Uvicorn)
+        engine_kwargs["pool_size"] = 10
+        engine_kwargs["max_overflow"] = 20
+        engine_kwargs["pool_timeout"] = 30
+        engine_kwargs["pool_recycle"] = 1800
+
+    engine = create_engine(settings.DATABASE_URL, **engine_kwargs)
 except Exception as e:
     logger.error(f"Error creating SQLAlchemy engine: {e}")
     # Fallback to an in-memory database to prevent crashes during imports/dry-runs

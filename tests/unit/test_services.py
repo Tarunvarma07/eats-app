@@ -300,5 +300,5 @@ def test_auth_service_authenticate_user_wrong_password(db):
     db.commit()
     
     login_data = UserLogin(email="test@example.com", password="WrongPassword")
-    with pytest.raises(ValueError, match="Invalid credentials"):
+    with pytest.raises(ValueError, match="The email or password you entered is not correct."):
         AuthService.authenticate_user(db, login_data)

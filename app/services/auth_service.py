@@ -93,7 +93,7 @@ class AuthService:
         if not user:
             logger.warning(f"Login attempt with non-existent email: {login_data.email}")
             raise ValueError(
-                "Invalid credentials"
+                "The email or password you entered is not correct."
             )
 
         if not verify_password(
@@ -102,7 +102,7 @@ class AuthService:
         ):
             logger.warning(f"Failed login attempt for email: {login_data.email}")
             raise ValueError(
-                "Invalid credentials"
+                "The email or password you entered is not correct."
             )
 
         if not user.is_approved:
@@ -211,7 +211,7 @@ class AuthService:
             login_data.password,
             user.hashed_password
         ):
-            raise ValueError("Invalid credentials")
+            raise ValueError("The email or password you entered is not correct.")
 
         return user
 
@@ -227,7 +227,7 @@ class AuthService:
             raise ValueError("User not found")
         
         if not verify_password(current_password, user.hashed_password):
-            raise ValueError("Current password is incorrect")
+            raise ValueError("The current password you entered is not correct.")
         
         user.hashed_password = hash_password(new_password)
         db.commit()
